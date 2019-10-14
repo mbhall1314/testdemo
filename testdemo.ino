@@ -24,6 +24,10 @@ char serialData;
 #define INE  4
 #define INF  3
 
+bool skate[6]={false};
+String machine[4]={"L:"," W:","H:"," M:"};
+bool isAuto=true;
+
 void setup(){
   Serial.begin(9600);
   Serial1.begin(9600);
@@ -53,20 +57,20 @@ void getLight(){
   Serial.print("Light: ");
   Serial.print(lux);
   Serial.println(" lx");
-
-  /*lcd.clear();
-  lcd.setCursor(0, 0);*/
   
-  if(lux<100){
-    digitalWrite(INA,HIGH);     //open the light
-    Serial1.println("Light:ON");
-  }
-  else{
-    digitalWrite(INA,LOW);      //close the light
-    Serial1.println("Light:OFF");
+  if(isAuto){
+    if(lux<100){
+      digitalWrite(INA,HIGH);     //open the light
+      skate[0]=true;
+    }
+    else{
+      digitalWrite(INA,LOW);      //close the light
+      skate[0]=false;
+    }
   }
   
   //lcd
+  lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Light: ");
   lcd.print(lux,DEC);
@@ -96,34 +100,32 @@ void getHumTem(){
                 Serial.print("Unknown error,\t"); 
                 break;
   }
- // DISPLAT DATA
+  // DISPLAT DATA
   Serial.print("hum:");
   Serial.print(DHT.humidity,1);
   Serial.print(",\t");
   Serial.print("tem:");
   Serial.println(DHT.temperature,1);
 
-  /*lcd.clear();
-  lcd.setCursor(0,0);*/
-  if(DHT.humidity<50){
-    digitalWrite(INB,HIGH);     //open the light
-    Serial1.println("Water:ON");
-  }
-  else{
-    digitalWrite(INB,LOW);
-    lcd.println("Water:OFF");
+  if(isAuto){
+    if(DHT.humidity<50){
+      digitalWrite(INB,HIGH);     //pour
+      skate[1]=true;
+    }
+    else{
+      digitalWrite(INB,LOW);
+      skate[1]=false;
+    }
+    if(DHT.temperature<25){
+      digitalWrite(INC,HIGH);     //heat
+      skate[2]=true;
+    }
+    else{
+      digitalWrite(INC,LOW);
+      skate[2]=false;
+    }
   }
   
-  //lcd.setCursor(0,1);
-  if(DHT.temperature<25){
-    digitalWrite(INC,HIGH);     //open the light
-    Serial1.println("Warm:ON");
-  }
-  else{
-    digitalWrite(INC,LOW);
-    Serial1.println("Warm:OFF");
-  }
-
   //lcd
   lcd.clear();
   lcd.setCursor(0,0);
@@ -155,18 +157,80 @@ void getMoisture(){
   lcd.print("moisture: ");
   lcd.print(val);
 
-  if(val<2.5){
-    digitalWrite(IND,HIGH);
-    Serial1.println("Mos:ON");
-  }
-  else{
-    digitalWrite(IND,LOW);
-    Serial1.println("Mos:OFF");
+  if(isAuto){
+    if(val<2.5){
+      digitalWrite(IND,HIGH);
+      skate[3]=true;
+    }
+    else{
+      digitalWrite(IND,LOW);
+      skate[3]=false;
+    }
   }
   
   //bluttooth
   Serial1.print("Moisture:");
   Serial1.println(val,DEC);
+}
+
+void printSkate(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  
+  for(int i=0;i<4;i++){
+    if(i==2){
+      lcd.setCursor(0,1);
+    }
+    lcd.print(machine[i]);
+    Serial1.print(machine[i]);
+    if(skate[i]){
+      lcd.print("ON");
+      Serial1.println("ON");
+    }
+    else{
+      lcd.print("OFF");
+      Serial1.println("OFF");
+    }
+  }
+}
+
+void blControl(char serialData){
+  switch(serialData){
+    case '1':
+      digitalWrite(INA,HIGH);
+      skate[0]=true;
+      break;
+    case '2':
+      digitalWrite(INA,LOW);
+      skate[0]=false;
+      break;
+    case '3':
+      digitalWrite(INB,HIGH);
+      skate[1]=true;
+      break;
+    case '4':
+      digitalWrite(INB,LOW);
+      skate[1]=false;
+      break;
+     case '5':
+      digitalWrite(INC,HIGH);
+      skate[2]=true;
+      break;
+     case '6':
+      digitalWrite(INC,LOW);
+      skate[2]=false;
+      break;
+     case '7':
+      digitalWrite(IND,HIGH);
+      skate[3]=true;
+      break;
+     case '8':
+      digitalWrite(IND,LOW);
+      skate[3]=false;
+      break;
+     default:
+      break;
+  }
 }
 
 void loop() {
@@ -182,17 +246,29 @@ void loop() {
     //Moisture
     getMoisture();
   }
+  else if(count==3000){
+    //print skate
+    printSkate();
+  }
   else{
     //bluttooth
     if(Serial1.available()){
       serialData=Serial1.read();
-      if(serialData=='1'){
-        digitalWrite(INA,LOW);
+      if(serialData=='a'){        //手动模式
+        isAuto=false;
+      }
+      else if(serialData=='b'){   //自动模式
+        isAuto=true;
+      }
+      else{
+        if(!isAuto){
+          blControl(serialData);
+        }
       }
     }
   }
   
-  count=(count+1)%3000;
+  count=(count+1)%4000;
 
   delay(1);
 }
