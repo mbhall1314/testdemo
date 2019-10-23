@@ -17,15 +17,17 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 char serialData;
 
 //power
-#define INA  9
-#define INB  8
-#define INC  7
-#define IND  5
-#define INE  4
-#define INF  3
+#define INA  3
+#define INB  4
+#define INC  5
+#define IND  7
+#define INE  8
+#define INF  9
 
-bool skate[6]={false};
-String machine[4]={"L:"," W:","H:"," M:"};
+int humidity;
+
+bool skate[4]={false};
+String machine[4]={"L:"," F1","F2:","P:"};
 bool isAuto=true;
 
 void setup(){
@@ -60,12 +62,19 @@ void getLight(){
   
   if(isAuto){
     if(lux<100){
-      digitalWrite(INA,HIGH);     //open the light
+      digitalWrite(INC,HIGH);     //open the light
+      digitalWrite(IND,HIGH);  
       skate[0]=true;
+      skate[1]=true;
+    }
+    else if(lux>200){
+      digitalWrite(INC,LOW);      //close the light
+      digitalWrite(IND,LOW);
+      skate[0]=false;
+      skate[1]=false;
     }
     else{
-      digitalWrite(INA,LOW);      //close the light
-      skate[0]=false;
+      ;
     }
   }
   
@@ -108,21 +117,19 @@ void getHumTem(){
   Serial.println(DHT.temperature,1);
 
   if(isAuto){
-    if(DHT.humidity<50){
-      digitalWrite(INB,HIGH);     //pour
-      skate[1]=true;
-    }
-    else{
-      digitalWrite(INB,LOW);
-      skate[1]=false;
-    }
-    if(DHT.temperature<25){
-      digitalWrite(INC,HIGH);     //heat
+    if(DHT.humidity>50){
+      digitalWrite(INE,HIGH);     //fan2
       skate[2]=true;
     }
-    else{
-      digitalWrite(INC,LOW);
+    else if(DHT.humidity<45){
+      digitalWrite(INE,LOW);
       skate[2]=false;
+    }
+    if(DHT.temperature>32){
+      digitalWrite(INC,LOW);      //close the light and fan1
+      digitalWrite(IND,LOW);
+      skate[0]=false;
+      skate[1]=false;
     }
   }
   
@@ -143,9 +150,11 @@ void getHumTem(){
   Serial1.print(",\t");
   Serial1.print("tem:");
   Serial1.println(DHT.temperature,1);
+
+  humidity= DHT.humidity;
 }
 
-void getMoisture(){
+void getMoisture(int humidity){
   int val=0;
   val=analogRead(0);   //传感器接于模拟口0
   Serial.print("Moisture:");
@@ -158,13 +167,16 @@ void getMoisture(){
   lcd.print(val);
 
   if(isAuto){
-    if(val<2.5){
-      digitalWrite(IND,HIGH);
+    if(val<2&&humidity>30){
+      digitalWrite(INF,HIGH);
       skate[3]=true;
     }
-    else{
-      digitalWrite(IND,LOW);
+    else if(val>2.3){
+      digitalWrite(INF,LOW);
       skate[3]=false;
+    }
+    else{
+      ;
     }
   }
   
@@ -197,35 +209,35 @@ void printSkate(){
 void blControl(char serialData){
   switch(serialData){
     case '1':
-      digitalWrite(INA,HIGH);
+      digitalWrite(INC,HIGH);
       skate[0]=true;
       break;
     case '2':
-      digitalWrite(INA,LOW);
+      digitalWrite(INC,LOW);
       skate[0]=false;
       break;
     case '3':
-      digitalWrite(INB,HIGH);
+      digitalWrite(IND,HIGH);
       skate[1]=true;
       break;
     case '4':
-      digitalWrite(INB,LOW);
+      digitalWrite(IND,LOW);
       skate[1]=false;
       break;
      case '5':
-      digitalWrite(INC,HIGH);
+      digitalWrite(INE,HIGH);
       skate[2]=true;
       break;
      case '6':
-      digitalWrite(INC,LOW);
+      digitalWrite(INE,LOW);
       skate[2]=false;
       break;
      case '7':
-      digitalWrite(IND,HIGH);
+      digitalWrite(INF,HIGH);
       skate[3]=true;
       break;
      case '8':
-      digitalWrite(IND,LOW);
+      digitalWrite(INF,LOW);
       skate[3]=false;
       break;
      default:
@@ -241,10 +253,11 @@ void loop() {
   else if(count==1000){
     //DHT11
     getHumTem();
+    Serial.println(humidity);
   }
   else if(count==2000){
     //Moisture
-    getMoisture();
+    getMoisture(humidity);
   }
   else if(count==3000){
     //print skate
